@@ -34,7 +34,3 @@ The Python source is in `ffw_editor/`. The GUI entry point is `save_editor_gui.p
 ## Disclaimer
 
 This is an unofficial community tool and is not affiliated with or endorsed by the developers or publisher of Far Far West. Save formats can change between game versions. Keep backups of original saves.
-
-## Credits / original project
-
-This version is based on an existing Far Far West Save Editor and modifies its Python source to add/fix Frost and Cactus progression support. Add the original author's/project link here if known so proper attribution is preserved.
