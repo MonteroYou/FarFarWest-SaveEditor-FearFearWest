@@ -1,36 +1,57 @@
 # Far Far West Save Editor — Frost & Cactus Magic Fix
 
-Community-maintained Python save editor for **Far Far West**, with safe support for Frost and Cactus magic progression.
+Save editor for **Far Far West**, updated for the **Fear Fear West** game update.
 
-## v8 highlights
+## v10 — Fear Fear West fix
 
-- Edits the real, game-created Frost XP record (`itemIce`).
-- Edits the real, game-created Cactus XP record (`itemCactus`).
-- Uses existing XP records only; it does **not** invent new `runtimeInventory` entries.
-- Preserves the byte-preserving GVAS serialization approach.
-- Keeps `rewardedChallenges` intact.
-- Retains the editor's original AES encryption/decryption implementation.
-- Includes a Windows `run_editor.bat` launcher.
+Fixed edited saves being detected as corrupt and replaced by the game's automatic backup.
 
-## Important requirement
+The game stores an `FFWT` footer containing a CRC32 checksum of the GVAS save data. Previous versions changed the save values without updating that checksum. v10 recalculates the CRC32 when saving and validates it when reading a file.
 
-Before Frost or Cactus can be edited, **level each magic naturally in-game at least once** so the game creates its legitimate `itemIce` / `itemCactus` XP record. v8 intentionally refuses to manufacture missing records because doing so was found to make saves unusable.
+I tested v10 in-game and confirmed the edited save loads properly.
 
-Always back up your save before editing it.
+### Features
 
-## Running on Windows
+- Edit gold and the other values supported by the editor.
+- Edit Frost and Cactus magic levels using the existing `itemIce` and `itemCactus` XP records.
+- Preserve the original save structure without adding fake inventory records.
+- Verify the `FFWT` checksum and the output file after editing.
+- Create a backup before replacing an existing save.
 
-1. Download and extract the release ZIP.
-2. Double-click `run_editor.bat`.
-3. Select your Far Far West save.
-4. Make your changes and save.
+**Frost and Cactus requirement:** Level the relevant magic naturally at least once in-game before editing it. The game must first create the corresponding XP record. The editor won't create missing XP records.
 
-The launcher checks for Python and installs `pycryptodome` if necessary.
+## Download and run (Windows)
 
-## Source
+1. Download `FarFarWest_SaveEditor_v10_FearFearWest_FIXED.zip`.
+2. Extract the **entire** ZIP to a folder.
+3. Close Far Far West completely.
+4. Double-click `run_editor.bat`. Python 3 is required; the launcher will attempt to install `pycryptodome` if it's missing.
+5. Click **Open**, select your save, change the values you want, then click **Save**.
+6. Launch the game to check the changes.
 
-The Python source is in `ffw_editor/`. The GUI entry point is `save_editor_gui.py`.
+Save files are normally in:
+
+```text
+%LOCALAPPDATA%\FarFarWest\Saved\SaveGames
+```
+
+The active save is normally `<SteamID>.save`. Back up the **entire SaveGames folder** somewhere else before using the editor. Don't replace or delete the game's backups unless you have copies elsewhere.
+
+## Troubleshooting
+
+- **Game marks the save as corrupt or restores a backup:** Make sure you're using v10, not v8 or v9. Check that the game is closed while editing and that you're loading the correct save file.
+- **Editor doesn't open:** Make sure everything was extracted, then run `py -3 save_editor_gui.py` in Command Prompt from the extracted folder to see the error.
+- **Missing Crypto module:** Run `py -3 -m pip install pycryptodome`.
+- **Frost/Cactus editing isn't available:** Level the magic at least once naturally, save in-game, then reopen that save in the editor.
+
+Please include the game version, editor version, what you tried, and the error message when reporting an issue. Avoid posting unredacted personal save data publicly.
+
+## Version history
+
+- **v10:** Fixed the `FFWT` CRC32 checksum so the game accepts edited saves after the Fear Fear West update; retained validation and backup safeguards.
+- **v9:** Experimental encryption/write safety changes. Did not solve game-side corruption.
+- **v8:** Fixed Frost/Cactus magic editing using their actual XP records.
 
 ## Disclaimer
 
-This is an unofficial community tool and is not affiliated with or endorsed by the developers or publisher of Far Far West. Save formats can change between game versions. Keep backups of original saves.
+This is an unofficial community tool, not affiliated with the developers or publisher of Far Far West. Save formats can change between game updates. Always keep backups.
