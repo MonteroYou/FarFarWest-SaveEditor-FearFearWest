@@ -22,7 +22,7 @@ The issue was an outdated **CRC32 checksum** in the save's `FFWT` footer. v10 re
 
 ## Download and installation
 
-1. Open the [Releases page](https://github.com/MonteroYou/FarFarWest-SaveEditor-Frostburn/releases).
+1. Open the [Releases page](https://github.com/MonteroYou/FarFarWest-SaveEditor-FearFearWest/releases/latest).
 2. Download **`FarFarWest_SaveEditor_v10_FearFearWest_FIXED.zip`** from the latest release.
 3. Extract the entire ZIP to a folder.
 4. Close Far Far West completely.
