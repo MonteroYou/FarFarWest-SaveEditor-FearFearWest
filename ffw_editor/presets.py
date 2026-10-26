@@ -56,7 +56,7 @@ def _find_inventory_amount(props, item_name: str):
 def preset_max_money(props):
     n = 0
     for name, amt in _inventory_entries(props):
-        if name in ("moneyGold", "moneySoul", "moneyTicket"):
+        if name.startswith("money") or "candle" in name.lower():
             amt["value"] = 999_999
             n += 1
     return I18N.t("msg_currency_stacks", n=n)

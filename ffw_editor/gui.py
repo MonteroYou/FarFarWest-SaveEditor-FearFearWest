@@ -18,6 +18,7 @@ from ctypes import wintypes
 from .crypto import decrypt, derive_key, encrypt
 from .gvas import GvasFile
 from .integrity import check_checksum, refresh_checksum
+from .prestige import state as prestige_state, apply_hero_prestige, rebuilt_ffwt
 from .presets import PRESETS, apply_presets
 from .i18n import I18N
 
@@ -103,6 +104,8 @@ def _parse_value(text: str, current: Any) -> Any:
 class SaveEditor(tk.Tk):
     NAV_KEYS = [
         ("presets",   "presets"),
+        ("prestige",  "Prestige"),
+        ("currencies", "Currencies"),
         ("overview",  "overview"),
         ("inventory", "inventory"),
         ("levels",    "levels"),
@@ -114,6 +117,7 @@ class SaveEditor(tk.Tk):
     TABLE_HEADER_KEYS = {
         "overview":  ("field", "value"),
         "inventory": ("item", "amount"),
+        "currencies": ("item", "amount"),
         "levels":    ("counter", "linked_inv", "value"),
         "upgrades":  ("item", "upgrade", "value"),
         "jokers":    ("item", "slot", "value"),
@@ -289,6 +293,9 @@ class SaveEditor(tk.Tk):
         for key, _ in self.NAV_KEYS:
             if key == "presets":
                 continue
+            if key == "prestige":
+                self._build_prestige_page()
+                continue
             self._build_table_page(key, tuple(I18N.t(k) for k in self.TABLE_HEADER_KEYS[key]))
 
         # status
@@ -327,6 +334,63 @@ class SaveEditor(tk.Tk):
         for pkey, frame in self.pages.items():
             frame.pack_forget()
         self.pages[key].pack(fill=BOTH, expand=True)
+
+    # ---- one-step Hero prestige ---------------------------------------
+    def _build_prestige_page(self):
+        page = ttk.Frame(self.content_holder, style="Panel.TFrame")
+        self.pages["prestige"] = page
+        ttk.Label(page, text="Hero Prestige", style="Heading.TLabel").pack(anchor="w", pady=(0,12))
+        self.prestige_summary = tk.StringVar(value="Open a save to view Hero prestige.")
+        ttk.Label(page, textvariable=self.prestige_summary, style="Panel.TLabel").pack(anchor="w", pady=(0,14))
+        ttk.Label(page, text="Perform ONE prestige at a time. Allocate exactly five tokens.", style="Panel.TLabel").pack(anchor="w", pady=(0,8))
+        self.prestige_joker = tk.BooleanVar(value=True)
+        ttk.Checkbutton(page, text="+1 Hero Joker slot (5 tokens; maximum 2)", variable=self.prestige_joker).pack(anchor="w", pady=4)
+        self.prestige_upgrades=tk.StringVar(value="0")
+        self.prestige_tickets=tk.StringVar(value="0")
+        self.prestige_gold=tk.StringVar(value="0")
+        self.prestige_souls=tk.StringVar(value="0")
+        for label,variable in (("Hero upgrade slots (2 tokens each, max 6)",self.prestige_upgrades),
+                               ("XP tickets (1 token each)",self.prestige_tickets),
+                               ("500 gold packs (1 token each)",self.prestige_gold),
+                               ("1,000 souls packs (1 token each)",self.prestige_souls)):
+            line=ttk.Frame(page, style="Panel.TFrame")
+            line.pack(anchor="w",fill=X,pady=3)
+            ttk.Label(line,text=label,style="Panel.TLabel",width=35).pack(side=LEFT)
+            tk.Spinbox(line,from_=0,to=5,width=5,textvariable=variable).pack(side=LEFT)
+        ttk.Label(page,text="Allocate exactly five tokens. Back up your save before editing.",style="Panel.TLabel").pack(anchor="w",pady=(12,5))
+        ttk.Label(page,text="The game may require level 100. This tool does not enforce level eligibility.",style="Panel.TLabel").pack(anchor="w",pady=5)
+        ttk.Button(page,text="Apply one prestige (then click Save)",style="Accent.TButton",command=self._apply_prestige).pack(anchor="w",pady=14)
+        ttk.Label(page,text="Back up your save. Test upgrades only on a BACKUP; other rewards have been verified in-game.",style="Panel.TLabel").pack(anchor="w")
+
+    def _refresh_prestige(self):
+        if self.gvas is not None and hasattr(self,"prestige_summary"):
+            data=prestige_state(self.gvas)
+            self.prestige_summary.set(f"Current Hero prestige: {data['prestige']} / 15     Extra Joker slots: {data['joker']} / 2     Extra upgrade slots: {data['upgrade_slots']} / 6     Hero XP: {data['xp']}")
+
+    def _apply_prestige(self):
+        if self.gvas is None:
+            messagebox.showwarning("No save", "Open a save first.")
+            return
+        import copy
+        candidate=copy.deepcopy(self.gvas)
+        try:
+            before,after=apply_hero_prestige(candidate,self.prestige_joker.get(),
+                                              int(self.prestige_tickets.get()),
+                                              int(self.prestige_gold.get()),
+                                              int(self.prestige_souls.get()),
+                                              int(self.prestige_upgrades.get()))
+            payload=rebuilt_ffwt(candidate)
+            check_checksum(payload)
+            if GvasFile.parse(payload).serialize()!=payload:
+                raise ValueError("Prestige output failed round-trip verification")
+            if not messagebox.askyesno("Confirm prestige edit",f"Prestige {before['prestige']} → {after['prestige']}\nHero XP → 1\n\nApply to editor? You must then click Save."):
+                return
+            self.gvas=candidate
+            self.rebuild_rows()
+            self._refresh_prestige()
+            self.status_var.set("Prestige changes staged. Click Save to write the file.")
+        except Exception as exc:
+            messagebox.showerror("Prestige edit refused",str(exc))
 
     # ---- presets page ---------------------------------------------------
     def _build_presets_page(self):
@@ -524,6 +588,7 @@ class SaveEditor(tk.Tk):
             self.save_path = path
             self.file_label_var.set(path.name)
             self.rebuild_rows()
+            self._refresh_prestige()
             total = sum(len(info["rows"]) for info in self.tables.values())
             self.status_var.set(I18N.t("msg_loaded", name=path.name, total=total))
         except Exception as exc:
@@ -559,8 +624,8 @@ class SaveEditor(tk.Tk):
             messagebox.showerror(I18N.t("save_failed"), I18N.t("msg_no_key"))
             return
         try:
-            # v9 safety: refuse to edit files the parser cannot round-trip.
-            plaintext = refresh_checksum(self.gvas.serialize())
+            # v11: regenerate FFWT footer/padding even when game-format records grow.
+            plaintext = rebuilt_ffwt(self.gvas)
             check_checksum(plaintext)
             parsed_again = GvasFile.parse(plaintext)
             if parsed_again.serialize() != plaintext:
@@ -579,8 +644,7 @@ class SaveEditor(tk.Tk):
             encrypted = encrypt(plaintext, self.key, iv=original[:16])
             if decrypt(encrypted, self.key) != plaintext:
                 raise ValueError("Encrypted save failed read-back verification.")
-            if len(encrypted) != len(original):
-                raise ValueError("Edited save changed encrypted file size; refusing risky write.")
+            # New game-format prestige records legitimately change file length.
             if make_backup and path.exists():
                 stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
                 backup = path.with_name(f"{path.stem}.backup_gui_{stamp}{path.suffix}")
@@ -610,6 +674,7 @@ class SaveEditor(tk.Tk):
         builders = {
             "overview":  self._overview_rows,
             "inventory": self._inventory_rows,
+            "currencies": self._currency_rows,
             "levels":    self._level_rows,
             "upgrades":  self._upgrade_rows,
             "jokers":    self._joker_rows,
@@ -728,6 +793,28 @@ class SaveEditor(tk.Tk):
             name = str(name_prop["value"])
             rows.append(EditRow(
                 f"inventory:{idx}",
+                (name, _display_value(amount_prop["value"])),
+                lambda p=amount_prop: p["value"],
+                lambda value, n=name, p=amount_prop: self._set_inventory_amount(n, p, value),
+            ))
+        return rows
+
+    def _currency_rows(self):
+        """Only display game-created money records. Never guess currency IDs."""
+        inventory = self._find_prop("runtimeInventory")
+        rows = []
+        if not inventory:
+            return rows
+        for idx, item_props in enumerate(inventory["value"]):
+            name_prop = next((p for p in item_props if _short_name(p["_name"]) == "name"), None)
+            amount_prop = next((p for p in item_props if _short_name(p["_name"]) == "amount"), None)
+            if not name_prop or not amount_prop:
+                continue
+            name = str(name_prop["value"])
+            if not (name.lower().startswith("money") or "candle" in name.lower()):
+                continue
+            rows.append(EditRow(
+                f"currency:{idx}",
                 (name, _display_value(amount_prop["value"])),
                 lambda p=amount_prop: p["value"],
                 lambda value, n=name, p=amount_prop: self._set_inventory_amount(n, p, value),
