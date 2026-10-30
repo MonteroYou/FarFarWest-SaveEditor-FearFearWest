@@ -28,9 +28,23 @@ def derive_key(seed: str | bytes) -> bytes:
     return hashlib.sha256(seed).digest()
 
 
+V2_TAIL = bytes.fromhex("464bbcf4")  # Observed four-byte trailer in current game saves.
+
+
+def split_save(data: bytes) -> tuple[bytes, bytes]:
+    """Separate the AES envelope from the optional newer-format tail.
+
+    Refuse unknown trailing data rather than silently discarding it.
+    """
+    if len(data) >= 36 and len(data) % 16 == 4 and data[-4:] == V2_TAIL:
+        return data[:-4], data[-4:]
+    if len(data) >= 32 and len(data) % 16 == 0:
+        return data, b""
+    raise ValueError(f"Unrecognized save envelope (size {len(data)}); refusing to edit")
+
+
 def decrypt(data: bytes, key: bytes) -> bytes:
-    if len(data) < 32 or (len(data) - 16) % 16 != 0:
-        raise ValueError(f"bad save size {len(data)}")
+    data, _tail = split_save(data)
     iv, ct = data[:16], data[16:]
     pt = AES.new(key, AES.MODE_CBC, iv=iv).decrypt(ct)
     if pt[:4] != b"GVAS":
@@ -38,7 +52,7 @@ def decrypt(data: bytes, key: bytes) -> bytes:
     return pt
 
 
-def encrypt(plaintext: bytes, key: bytes, iv: bytes | None = None) -> bytes:
+def encrypt(plaintext: bytes, key: bytes, iv: bytes | None = None, tail: bytes = b"") -> bytes:
     if plaintext[:4] != b"GVAS":
         raise ValueError("plaintext must start with GVAS")
     if len(plaintext) % 16 != 0:
@@ -51,7 +65,9 @@ def encrypt(plaintext: bytes, key: bytes, iv: bytes | None = None) -> bytes:
     if len(iv) != 16:
         raise ValueError("iv must be 16 bytes")
     ct = AES.new(key, AES.MODE_CBC, iv=iv).encrypt(plaintext)
-    return iv + ct
+    if tail not in (b"", V2_TAIL):
+        raise ValueError("Unknown save trailer; refusing to write")
+    return iv + ct + tail
 
 
 def decrypt_file(path: str | Path, key: bytes) -> bytes:

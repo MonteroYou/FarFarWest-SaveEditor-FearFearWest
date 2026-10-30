@@ -111,7 +111,7 @@ def rebuilt_ffwt(gvas):
     idx = trailing.rfind(b"FFWT")
     if idx < 0 or idx + 16 > len(trailing): raise ValueError("Missing FFWT footer")
     ver, old_length, _old_crc = struct.unpack_from("<III", trailing, idx + 4)
-    if ver != 1: raise ValueError("Unrecognized FFWT version")
+    if ver not in (1, 0xF4BC0002): raise ValueError("Unrecognized FFWT version")
     if idx + 16 >= len(trailing): raise ValueError("Missing AES padding")
     pad=trailing[-1]
     if not (1 <= pad <= 16 and trailing[-pad:] == bytes([pad])*pad and idx+16==len(trailing)-pad):
@@ -119,7 +119,7 @@ def rebuilt_ffwt(gvas):
     # Retain any opaque bytes immediately preceding FFWT (observed 4 zero bytes).
     gvas.trailing = trailing[:idx]
     prefix=gvas.serialize()
-    end=prefix+b"FFWT"+struct.pack("<III",1,len(prefix),zlib.crc32(prefix)&0xffffffff)
+    end=prefix+b"FFWT"+struct.pack("<III",ver,len(prefix),zlib.crc32(prefix)&0xffffffff)
     padding=16-len(end)%16
-    gvas.trailing=trailing[:idx]+b"FFWT"+struct.pack("<III",1,len(prefix),zlib.crc32(prefix)&0xffffffff)+bytes([padding])*padding
+    gvas.trailing=trailing[:idx]+b"FFWT"+struct.pack("<III",ver,len(prefix),zlib.crc32(prefix)&0xffffffff)+bytes([padding])*padding
     return gvas.serialize()

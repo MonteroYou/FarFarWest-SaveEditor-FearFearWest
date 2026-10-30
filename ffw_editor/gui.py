@@ -15,7 +15,7 @@ import tkinter.font as tkfont
 from tkinter import ttk
 from ctypes import wintypes
 
-from .crypto import decrypt, derive_key, encrypt
+from .crypto import decrypt, derive_key, encrypt, split_save
 from .gvas import GvasFile
 from .integrity import check_checksum, refresh_checksum
 from .prestige import state as prestige_state, apply_hero_prestige, rebuilt_ffwt
@@ -579,6 +579,11 @@ class SaveEditor(tk.Tk):
             self.key = _load_key(path)
             original_encrypted = path.read_bytes()
             plaintext = decrypt(original_encrypted, self.key)
+            _envelope, tail = split_save(original_encrypted)
+            pad = plaintext[-1]
+            footer_version = int.from_bytes(plaintext[len(plaintext)-pad-12:len(plaintext)-pad-8], "little")
+            if (footer_version == 0xF4BC0002) != bool(tail):
+                raise ValueError("Save footer/trailer format mismatch; refusing to edit.")
             check_checksum(plaintext)
             self.gvas = GvasFile.parse(plaintext)
             if self.gvas.serialize() != plaintext:
@@ -641,7 +646,8 @@ class SaveEditor(tk.Tk):
                 return
             # Preserve the original IV. This is a conservative compatibility
             # experiment, NOT evidence the game's integrity checks require it.
-            encrypted = encrypt(plaintext, self.key, iv=original[:16])
+            _envelope, tail = split_save(original)
+            encrypted = encrypt(plaintext, self.key, iv=original[:16], tail=tail)
             if decrypt(encrypted, self.key) != plaintext:
                 raise ValueError("Encrypted save failed read-back verification.")
             # New game-format prestige records legitimately change file length.

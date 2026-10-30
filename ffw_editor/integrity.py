@@ -20,7 +20,7 @@ def _footer(payload: bytes) -> tuple[int, int] | None:
     if end < 16 or payload[end-16:end-12] != b'FFWT':
         return None
     version, gvas_len, _crc = struct.unpack_from('<III', payload, end - 12)
-    if version != 1 or gvas_len != end - 16:
+    if version not in (1, 0xF4BC0002) or gvas_len != end - 16:
         return None
     return end - 16, end
 
