@@ -1,304 +1,95 @@
 # Far Far West Save Editor — Fear Fear West
 
-A save editor for **Far Far West**, updated for the **Fear Fear West** game update.
-
-Supports Hero prestige rewards, currency editing, Frost/Cactus magic progression, and FFWT checksum validation to ensure edited saves load correctly.
+Save editor for **Far Far West**, updated for the **Fear Fear West** game update. Supports Hero prestige rewards, currency editing, Frost/Cactus magic editing, and the FFWT checksum required for edited saves to load.
 
 ## Download
 
-**[Download the latest release](https://github.com/MonteroYou/FarFarWest-SaveEditor-FearFearWest/releases/latest)**
+**[Download the latest release](https://github.com/MonteroYou/FarFarWest-SaveEditor-FearFearWest/releases/latest)** and download the newest ZIP under **Assets**. Extract the ZIP before running the editor; do not run the launcher from inside the ZIP.
 
-Download the latest version's ZIP file under **Assets**.
+## v11.4 — Multi-account save compatibility
 
-Extract the entire ZIP before running the editor. Do not run the launcher directly from inside the ZIP.
+**Updated save support:** v11.4 fixes the save-envelope and FFWT validation errors reported by players whose newer saves have different per-save identifiers. Instead of assuming one fixed marker, the editor checks the relationship between the internal FFWT v2 footer and the four-byte external trailer and preserves both when writing. Older FFWT v1 saves remain supported.
 
-**Requirements:**
-- Windows
-- Python 3
-- `pycryptodome` (automatically installed by the launcher if missing)
+This fix was confirmed in-game by three testers using different saves, including the user who reported [Issue #2](https://github.com/MonteroYou/FarFarWest-SaveEditor-FearFearWest/issues/2). It does not guarantee support for future, unknown save formats.
 
----
+**Known limitation:** Windows drag-and-drop may produce an `OverflowError` on some systems. Use the **Open** button to select your save instead.
 
 ## Features
 
-### Hero Prestige
+### Hero prestige
 
-The **Prestige** page allows you to increase your Hero prestige level and select the corresponding rewards.
+The **Prestige** page adds **one Hero prestige per application**, up to Prestige 15, and requires spending all **five reward tokens** for that prestige. The supported choices follow the in-game menu:
 
-- Increase Hero prestige **one level at a time**, up to Prestige 15.
-- Receive five reward tokens for each prestige.
-- Allocate all five tokens across the available rewards.
-- Preserve previously earned prestige rewards.
-- Automatically reset Hero XP when applying a prestige.
+| Reward | Cost | Limit |
+| --- | ---: | --- |
+| Extra Hero Joker slot | 5 tokens | 2 additional slots |
+| Extra Hero upgrade slot | 2 tokens | 6 additional slots |
+| XP ticket | 1 token | Available while tokens remain |
+| 500 gold | 1 token | Available while tokens remain |
+| 1,000 souls | 1 token | Available while tokens remain |
 
-| Reward | Token cost | Limit |
-|---|---:|---|
-| Extra Hero Joker slot | 5 | 2 additional slots |
-| Extra Hero upgrade slot | 2 | 6 additional slots |
-| XP ticket | 1 | Available while tokens remain |
-| 500 Gold | 1 | Available while tokens remain |
-| 1,000 Souls | 1 | Available while tokens remain |
-
-**Important:** Prestige editing currently supports **Hero prestige only**, not individual weapon prestige.
-
-Always back up your save before modifying prestige progression.
+The editor preserves previously earned rewards. **This feature edits Hero prestige only**, not weapon prestige. Each application also resets Hero XP, as the game does when prestiging. Make a backup before editing.
 
 ### Currencies
 
-The **Currencies** page allows you to edit existing currency records stored in your save.
+The **Currencies** page edits existing, game-created currency records, including:
 
 | Currency | Save record |
-|---|---|
+| --- | --- |
 | Gold | `moneyGold` |
 | Souls | `moneySoul` |
-| XP Tickets | `moneyTicket` |
+| XP tickets | `moneyTicket` |
 | Blueprints | `moneyBlueprint` |
 | Haunted Candles | `moneyHauntedCandle` |
 
-Blueprints and Haunted Candles have been identified in actual game saves and tested in-game.
+**Blueprints and Haunted Candles have been confirmed in actual game saves and tested in-game.** The Currencies page lists currencies present in the opened save rather than inventing arbitrary missing records. To edit Haunted Candles directly, first earn some in-game so `moneyHauntedCandle` exists in the save. The prestige reward path can create a missing XP-ticket record when needed.
 
-The editor only displays currency records already present in your save, rather than creating arbitrary missing records.
+### Other edits
 
-**Note:** To edit Haunted Candles directly, first earn some naturally in-game so the game creates the `moneyHauntedCandle` record.
+- Frost and Cactus magic progression, using existing `itemIce` and `itemCactus` XP records
+- Existing inventory, upgrade, Joker, challenge and preset features
+- FFWT CRC32 checksum validation and recalculation to prevent the corrupted-save rollback fixed in v10
+- Save backups and write verification
 
-The Prestige Editor can create a missing XP Ticket record when awarding tickets.
+**Frost and Cactus requirement:** Level each magic naturally at least once before editing, so the game creates its actual XP record.
 
-### Frost & Cactus Magic
+## Install and use (Windows)
 
-Supports editing Frost and Cactus magic progression using the actual XP records:
+1. Download the ZIP from [Releases](https://github.com/MonteroYou/FarFarWest-SaveEditor-FearFearWest/releases/latest).
+2. Extract the **entire** ZIP into its own folder.
+3. Close the game completely.
+4. Double-click `run_editor.bat` (Python 3 required). The launcher will attempt to install `pycryptodome` if missing.
+5. Choose **Open**, select your active `.save` file, make edits, then click **Save**.
+6. Launch the game and confirm the changes appear.
 
-- Frost Magic: `itemIce`
-- Cactus Magic: `itemCactus`
-
-**Requirement:** You must level each magic naturally at least once in-game before editing it.
-
-This ensures the corresponding XP records exist. The editor intentionally avoids creating fake magic inventory records, which could make saves unusable.
-
-### Additional Features
-
-- Edit existing inventory values.
-- Modify item progression and upgrades.
-- Edit Joker-related values.
-- Edit challenge progression.
-- Use built-in editing presets.
-- Automatic save backups.
-- Save validation and verification.
-- FFWT CRC32 checksum recalculation.
-
----
-
-## v11.1 — Save Format Compatibility Fix
-
-Version 11.1 fixes the **`bad save size`** error affecting saves created using the newer Fear Fear West save format.
-
-Previously, the editor expected all encrypted save files to follow the original layout. Some newer saves contain an additional four-byte trailer and use an updated FFWT footer format.
-
-As a result, the editor would reject these files before attempting to decrypt them.
-
-### What's Fixed
-
-- Fixed the `bad save size` error when opening newer saves.
-- Added support for the updated **FFWT v2** save format.
-- Retained compatibility with older **FFWT v1** saves.
-- Added handling for the additional four-byte trailer.
-- Preserved the original encryption method.
-- Updated CRC32 checksum validation and recalculation for both formats.
-- Preserved the existing automatic backup and save verification safeguards.
-
-### Compatibility
-
-The editor now supports both:
-
-- **FFWT v1:** Older save files.
-- **FFWT v2:** Newer save files containing the additional trailer.
-
-The editor recognizes the appropriate format when opening a save and preserves its required structure when writing changes.
-
-**Tested in-game:** A save that previously failed with `bad save size` was successfully opened, edited, and loaded in-game using v11.1.
-
-All existing Prestige Editor and currency features have been retained.
-
----
-
-## Installation (Windows)
-
-1. Download the latest ZIP from the [Releases page](https://github.com/MonteroYou/FarFarWest-SaveEditor-FearFearWest/releases/latest).
-2. Extract the **entire ZIP** into its own folder.
-3. Close Far Far West completely.
-4. Double-click `run_editor.bat`.
-5. The launcher checks for Python and attempts to install `pycryptodome` if necessary.
-6. Click **Open** and select your save file.
-7. Make your changes and click **Save**.
-8. Launch the game and confirm the changes appear.
-
-### Save Location
-
-Far Far West saves are normally located at:
+### Save location
 
 ```text
 %LOCALAPPDATA%\FarFarWest\Saved\SaveGames
 ```
 
-The active save is usually named:
-
-```text
-<SteamID>.save
-```
-
-**Always back up your entire `SaveGames` folder somewhere outside the game's save directory before editing.**
-
-Keep your original saves and game-generated backups until you've confirmed everything works.
-
----
-
-## Save Integrity & Backups
-
-Far Far West uses encrypted save files containing an **FFWT CRC32 checksum**.
-
-The checksum allows the game to detect when the save contents do not match their recorded integrity value.
-
-Earlier versions of the editor modified save values without updating this checksum, causing the game to mark edited saves as corrupted and restore automatic backups.
-
-This was fixed in v10.
-
-The editor now:
-
-1. Decrypts and validates the save.
-2. Reads and modifies the requested values.
-3. Recalculates the FFWT CRC32 checksum.
-4. Preserves the required save structure.
-5. Encrypts the updated data.
-6. Verifies the written save.
-
-Before overwriting an existing save, the editor also creates a timestamped backup using a filename similar to:
-
-```text
-<SteamID>.backup_gui_YYYYMMDD_HHMMSS.save
-```
-
-The game may also generate its own `.save.bak` and timestamped backup files.
-
-**Do not delete your original backups until you've confirmed that your edited save works.**
-
----
+The active file is usually named `<SteamID>.save`. **Back up your entire `SaveGames` folder outside the game's save directory** before editing. Keep your originals and game backups until you have confirmed the changes.
 
 ## Troubleshooting
 
-### "bad save size" error
+- **Unrecognized save envelope / FFWT footer:** Update to v11.4 or newer. Select the file with **Open** rather than drag-and-drop. If it still fails, report the game version and full error text.
+- **Game restores a backup or marks the save corrupt:** Use the latest version with FFWT CRC32 support; make sure the game was closed and you're editing the active save.
+- **Editor does not open:** Extract all files and run `py -3 save_editor_gui.py` from a Command Prompt opened in the extracted folder to see the error.
+- **Missing Crypto module:** Run `py -3 -m pip install pycryptodome`.
+- **A currency is not listed:** The game may not have created that currency record yet; earn some normally and save once.
+- **Prestige option not working:** Verify Hero progress and select a valid combination spending exactly five tokens. This does not affect weapon prestige.
 
-Make sure you're running **v11.1 or newer**.
+Report bugs through [GitHub Issues](https://github.com/MonteroYou/FarFarWest-SaveEditor-FearFearWest/issues). Include the game version, editor version, reproduction steps and error text; do not post saves containing personal identifiers publicly.
 
-Earlier versions did not support the updated FFWT v2 save format used by some newer game saves.
+## Version history
 
-Download the latest version from the Releases page and extract it into a new folder.
+- **v11.4 — Multi-account compatibility:** Recognizes matching per-save identifiers in FFWT v2 footers and four-byte trailers; preserves checksum validation and older format support.
+- **v11.1 — Updated save format:** Added initial FFWT v2/trailer support.
 
-### Game marks the save as corrupted
+- **v11 — Prestige & Currencies:** Hero prestige reward allocation; Joker slots, upgrade slots, XP tickets, gold and souls; currency editor including tested Blueprints and Haunted Candles.
+- **v10 — Save integrity:** Fixed the FFWT CRC32 checksum after editing to stop saves being rejected and backups being restored.
+- **v8 — Frost/Cactus:** Added XP-backed Frost and Cactus editing.
 
-- Make sure you're using the latest editor version.
-- Close the game completely before editing.
-- Verify you're selecting the correct active `.save` file.
-- Avoid manually altering the encrypted save contents.
-- Restore your original backup if the game rejects the edited file.
+## Attribution / disclaimer
 
-### Editor won't open
-
-Make sure you extracted every file from the ZIP.
-
-Open Command Prompt in the extracted editor folder and run:
-
-```cmd
-py -3 save_editor_gui.py
-```
-
-This should display any Python errors that prevent the editor from starting.
-
-### Missing Crypto module
-
-Install the required dependency:
-
-```cmd
-py -3 -m pip install pycryptodome
-```
-
-Then launch the editor again.
-
-### Currency isn't listed
-
-The game may not have created that currency record yet.
-
-Earn some of the currency naturally, save the game, and reopen the updated save in the editor.
-
-### Frost or Cactus editing isn't available
-
-Level the corresponding magic naturally at least once so its XP record is created.
-
-### Prestige editing isn't working
-
-- Make sure you're editing Hero prestige, not weapon prestige.
-- Select a valid reward combination costing exactly five tokens.
-- Check that the selected rewards haven't reached their maximum limits.
-- Save your changes with the game closed.
-
----
-
-## Reporting Bugs
-
-If you encounter a problem, please open an issue:
-
-**[GitHub Issues](https://github.com/MonteroYou/FarFarWest-SaveEditor-FearFearWest/issues)**
-
-Include:
-
-- Your game version.
-- The save editor version.
-- A description of the problem.
-- Steps to reproduce the issue.
-- Any error messages or screenshots.
-
-Please avoid publicly uploading unredacted save files containing personal account identifiers.
-
----
-
-## Version History
-
-### v11.1 — Save Format Compatibility
-
-- Fixed `bad save size` errors affecting newer saves.
-- Added support for FFWT v2.
-- Added handling for the additional four-byte trailer.
-- Updated checksum validation and save writing.
-- Retained support for older saves and existing editor features.
-
-### v11.0 — Prestige & Currencies
-
-- Added Hero prestige editing up to level 15.
-- Added all five Hero prestige reward types.
-- Added Hero Joker slot and upgrade slot rewards.
-- Added XP Ticket, Gold, and Souls prestige rewards.
-- Added a dedicated Currencies page.
-- Added support for Blueprints and Haunted Candles.
-
-### v10 — Save Integrity Fix
-
-- Fixed edited saves being rejected as corrupted.
-- Added FFWT CRC32 checksum recalculation.
-- Added checksum validation and safer save handling.
-- Improved backup and write verification.
-
-### v8 — Frost & Cactus Magic
-
-- Added XP-backed Frost magic editing.
-- Added XP-backed Cactus magic editing.
-- Preserved existing inventory records instead of generating artificial entries.
-
----
-
-## Attribution & Disclaimer
-
-This is an unofficial community-maintained tool and is not affiliated with or endorsed by the developers or publisher of Far Far West.
-
-The editor is derived from earlier community save editor work. See `LICENSE_NOTICE.md` for the current attribution and licensing information.
-
-Game updates may change the save format or introduce additional compatibility requirements.
-
-**Always keep backups of your original saves.**
+Unofficial community tool; not endorsed by the game's developers or publisher. Derived from previous community editor work. See `LICENSE_NOTICE.md` for the current attribution/licensing notice. Always retain backups; game updates may change the save format.
