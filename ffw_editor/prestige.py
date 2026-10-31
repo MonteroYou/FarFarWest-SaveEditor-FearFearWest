@@ -106,12 +106,12 @@ def apply_hero_prestige(gvas, joker_slot=False, tickets=0, gold_packs=0, soul_pa
 
 
 def rebuilt_ffwt(gvas):
-    """Rebuild FFWT version 1 with CRC32 and correct PKCS7 length when records grow."""
+    """Rebuild the original FFWT version with CRC32 and PKCS7 padding."""
     trailing = gvas.trailing
     idx = trailing.rfind(b"FFWT")
     if idx < 0 or idx + 16 > len(trailing): raise ValueError("Missing FFWT footer")
     ver, old_length, _old_crc = struct.unpack_from("<III", trailing, idx + 4)
-    if ver not in (1, 0xF4BC0002): raise ValueError("Unrecognized FFWT version")
+    if (ver != 1 and (ver & 0xFFFF) != 2): raise ValueError("Unrecognized FFWT version")
     if idx + 16 >= len(trailing): raise ValueError("Missing AES padding")
     pad=trailing[-1]
     if not (1 <= pad <= 16 and trailing[-pad:] == bytes([pad])*pad and idx+16==len(trailing)-pad):

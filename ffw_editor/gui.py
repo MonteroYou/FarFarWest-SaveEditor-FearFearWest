@@ -580,11 +580,21 @@ class SaveEditor(tk.Tk):
             original_encrypted = path.read_bytes()
             plaintext = decrypt(original_encrypted, self.key)
             _envelope, tail = split_save(original_encrypted)
-            pad = plaintext[-1]
-            footer_version = int.from_bytes(plaintext[len(plaintext)-pad-12:len(plaintext)-pad-8], "little")
-            if (footer_version == 0xF4BC0002) != bool(tail):
-                raise ValueError("Save footer/trailer format mismatch; refusing to edit.")
+            # Validate the decrypted FFWT payload on its own. Some game-created
+            # saves use a valid FFWT footer with an independent outer trailer;
+            # do not assume the two fields must have matching versions.
+            # split_save() and encrypt() preserve the exact outer trailer.
             check_checksum(plaintext)
+            # v2 stores a per-save 16-bit identifier in both the FFWT
+            # version word and the final four bytes: b"FK" + identifier.
+            pad = plaintext[-1]
+            footer_word = int.from_bytes(plaintext[-pad-12:-pad-8], "little")
+            if (footer_word & 0xFFFF) == 2:
+                expected_tail = b"FK" + (footer_word >> 16).to_bytes(2, "little")
+                if tail != expected_tail:
+                    raise ValueError("FFWT v2 trailer does not match its footer; refusing to edit.")
+            elif footer_word == 1 and tail:
+                raise ValueError("Unexpected external trailer on v1 save; refusing to edit.")
             self.gvas = GvasFile.parse(plaintext)
             if self.gvas.serialize() != plaintext:
                 raise ValueError("Save parser does not round-trip this file exactly; refusing to edit.")
@@ -650,6 +660,10 @@ class SaveEditor(tk.Tk):
             encrypted = encrypt(plaintext, self.key, iv=original[:16], tail=tail)
             if decrypt(encrypted, self.key) != plaintext:
                 raise ValueError("Encrypted save failed read-back verification.")
+            pad = plaintext[-1]
+            version = int.from_bytes(plaintext[-pad-12:-pad-8], "little")
+            if (version & 0xFFFF) == 2 and tail != b"FK" + (version >> 16).to_bytes(2, "little"):
+                raise ValueError("Generated v2 footer/trailer pair failed verification.")
             # New game-format prestige records legitimately change file length.
             if make_backup and path.exists():
                 stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")

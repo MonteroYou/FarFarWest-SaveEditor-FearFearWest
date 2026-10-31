@@ -28,15 +28,16 @@ def derive_key(seed: str | bytes) -> bytes:
     return hashlib.sha256(seed).digest()
 
 
-V2_TAIL = bytes.fromhex("464bbcf4")  # Observed four-byte trailer in current game saves.
+V2_TAIL = bytes.fromhex("464bbcf4")  # Example observed in one newer save; NOT a universal constant.
 
 
 def split_save(data: bytes) -> tuple[bytes, bytes]:
     """Separate the AES envelope from the optional newer-format tail.
 
-    Refuse unknown trailing data rather than silently discarding it.
+    Allow any four-byte trailer by length, but never discard it.
+    The caller must validate the decrypted GVAS and FFWT checksum before editing.
     """
-    if len(data) >= 36 and len(data) % 16 == 4 and data[-4:] == V2_TAIL:
+    if len(data) >= 36 and len(data) % 16 == 4:
         return data[:-4], data[-4:]
     if len(data) >= 32 and len(data) % 16 == 0:
         return data, b""
@@ -65,8 +66,8 @@ def encrypt(plaintext: bytes, key: bytes, iv: bytes | None = None, tail: bytes =
     if len(iv) != 16:
         raise ValueError("iv must be 16 bytes")
     ct = AES.new(key, AES.MODE_CBC, iv=iv).encrypt(plaintext)
-    if tail not in (b"", V2_TAIL):
-        raise ValueError("Unknown save trailer; refusing to write")
+    if len(tail) not in (0, 4):
+        raise ValueError("Unsupported save trailer length; refusing to write")
     return iv + ct + tail
 
 
